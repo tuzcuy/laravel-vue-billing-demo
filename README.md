@@ -27,6 +27,12 @@ All data is synthetic (Faker). No real customers, amounts or companies anywhere.
 - **Payments** — recorded against open invoices; partial payments move the invoice to `partially_paid`, settling it moves it to `paid`, overpayments are rejected (HTTP 422), everything runs in a DB transaction.
 - **Dashboard** — outstanding / overdue / collected-this-month KPIs (reported **per currency**, never summed across currencies), status distribution, most-overdue list.
 
+## One-click deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tuzcuy/laravel-vue-billing-demo)
+
+The repo ships a `render.yaml` blueprint: a single free-tier Docker web service using SQLite, migrated and seeded on boot. Free instances sleep when idle — the first request after a pause takes ~30s.
+
 ## Run it
 
 ```bash
