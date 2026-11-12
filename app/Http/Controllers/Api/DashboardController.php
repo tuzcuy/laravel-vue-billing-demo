@@ -7,6 +7,7 @@ use App\Http\Resources\InvoiceResource;
 use App\Models\Invoice;
 use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
@@ -23,9 +24,14 @@ class DashboardController extends Controller
             ->groupBy(fn (Invoice $i) => $i->effectiveStatus())
             ->map->count();
 
-        $collectedThisMonth = (int) Payment::query()
+        // Amounts are never summed across currencies — each currency
+        // is reported separately.
+        $collectedThisMonth = Payment::query()
+            ->with('invoice:id,currency')
             ->whereBetween('paid_at', [now()->startOfMonth(), now()->endOfMonth()])
-            ->sum('amount_cents');
+            ->get()
+            ->groupBy(fn (Payment $p) => $p->invoice->currency)
+            ->map(fn (Collection $group) => (int) $group->sum('amount_cents'));
 
         $recentlyOverdue = $overdue
             ->sortBy(fn (Invoice $i) => $i->due_date)
@@ -33,12 +39,21 @@ class DashboardController extends Controller
             ->values();
 
         return response()->json([
-            'outstanding_cents' => $open->sum(fn (Invoice $i) => $i->balanceCents()),
-            'overdue_cents' => $overdue->sum(fn (Invoice $i) => $i->balanceCents()),
-            'collected_this_month_cents' => $collectedThisMonth,
+            'outstanding_by_currency' => $this->balanceByCurrency($open),
+            'overdue_by_currency' => $this->balanceByCurrency($overdue),
+            'collected_this_month_by_currency' => $collectedThisMonth,
             'invoice_count' => $invoices->count(),
             'status_counts' => $statusCounts,
             'recently_overdue' => InvoiceResource::collection($recentlyOverdue),
         ]);
+    }
+
+    private function balanceByCurrency(Collection $invoices): Collection
+    {
+        return $invoices
+            ->groupBy('currency')
+            ->map(fn (Collection $group) => (int) $group->sum(
+                fn (Invoice $i) => $i->balanceCents()
+            ));
     }
 }
